@@ -33,15 +33,43 @@ function smart_prod(A::Any, B::Any, C::Any)
 end
 
 #*#############################################################################
-"""
-    ×(A, B, C)
+# """
+#     ×(A, B, C)
 
-Ternary operator definition for smart_prod(A, B, C)
+# Ternary operator definition for smart_prod(A, B, C)
+# # Example
+# ```julia-repl
+# julia> A × B × C
+
+# ```
+# """
+# ×(A::Any, B::Any, C::Any) = smart_prod(A, B, C)
+
+
+
+
+
+#*#############################################################################
+
+using LinearAlgebra #for  LinearAlgebra.BLAS.hemm()
+
+"""
+    ×(A, B)
+
+Binary operator to substitute LinearAlgebra.BLAS.hemm('L', 'U', A, B)
+for the product of hermitic matrices.
+
+# References
+- [BLAS functions](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/#BLAS-functions)
+- To know more aobut usage, see line 217 in [here](https://github.com/JuliaLang/julia/blob/ae8452a9e0b973991c30f27beb2201db1b0ea0d3/stdlib/LinearAlgebra/test/blas.jl)
+  - Cnn, Cnm, Cmn = Matrix{ComplexF32}.(undef,((2,2), (2,1), (1,2)))
+        
+
 # Example
 ```julia-repl
-julia> A × B × C
+julia> A × B
 
 ```
 """
-×(A::Any, B::Any, C::Any) = smart_prod(A, B, C)
+×(A::Any, B::Any) = BLAS.hemm('L','U', A, B) 
 

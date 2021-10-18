@@ -18,3 +18,7 @@ plotBands(n_up, n_dw)
 
 plotSpin(n_up, n_dw)
 
+
+using "transport.jl"
+transmission_up = get_transmission(G_up, T00, T, TD, GRenorm)
+transmission_dw = get_transmission(G_dw, T00, T, TD, GRenorm)
