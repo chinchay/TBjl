@@ -16,14 +16,15 @@ function greenSuperf(G,T00,T,TD, Ident) # Green renormalizado, de superficie
     Q00   = renorm(Ident, Zetas, G)  # Q00 = inv(  Ident - G00*T00 )*G00
     # Qs0 = 0.0 used for Ndizimac not defined `if (j>1) continuaGR = continuaDizimando(Qs, Qs0, atomosT)`
 
+    b = Q00     # for Qb, Qb stands for bulk
+    ν₊ = T      # for TR
+    ν₋ = TD     # for TRD
+
     s₊ = Q00    # for Qs, Qs stands for superficie, for funcion de superficie RIGHT
     s₋ = Q00    # for QDs, for funcion de superficie LEFT
     τ₊ = T      # for TRs
     τ₋ = TD     # for TRDs
 
-    b = Q00     # for Qb, Qb stands for bulk
-    ν₊ = T      # for TR
-    ν₋ = TD     # for TRD
 
     n = 10
     for i in 1:n
@@ -46,7 +47,8 @@ function greenSuperf(G,T00,T,TD, Ident) # Green renormalizado, de superficie
             ν₋ = ν₋ × β₋
 
             # update bulk function
-            b  = ( (β₊ × β₋) + (β₋ × β₊) ) × b
+            Zetas = ( (β₊ × β₋) + (β₋ × β₊) ) × b
+            b     = renorm(Ident, Zetas, b)  # Q00 = inv(  Ident - G00*T00 )*G00
         end
     end
     #
@@ -80,4 +82,33 @@ function get_transmission(G, T00, T, TD, GRenorm)
     transmission = Γ_L × GRenorm × Γ_R × GRenorm' # ' means transpose conjugated: adjunta no es adjoint(otra definicion en Algebra2)
     return transmission
 
+end
+
+
+function greenRenorm(G,T00,T,TD, Ident)
+    Zetas = G × T00
+    b  = renorm(Ident, Zetas, G)     # GR ## = inv(  Ident - G*T00 )*G
+    ν₊ = T      # TR
+    ν₋ = TD     # TRD
+
+    n = 10
+    for i in 1:n
+        # update central functions (not bulk)
+        β₊ = b × ν₊  # = Z ## Z(N-1)   = GR(N-1)*TR(N-1)
+        β₋ = b × ν₋  # = ZD ## ZzD(N-1) = GR(N-1)*TRD(N-1)
+
+        # avoid computing at the last loop, before updating `b`
+        if i < n
+            # update interactions τ and ν
+            ν₊ = ν₊ × b × ν₊   # TR(N) = TR(N-1)*GR(N-1)*TR(N-1)
+            ν₋ = ν₋ × b × ν₋   # TRD(N) = TRD(N-1)*GR(N-1)*TRD(N-1)
+        end
+        
+        # update bulk function
+        Zetas = (β₊ × β₋) + (β₋ × β₊)
+        b = renorm(Ident, Zetas, b)  #GR(N)= inv(...)*GR(N-1)
+
+    end
+    #   
+    return GR
 end
