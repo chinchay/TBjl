@@ -15,71 +15,42 @@ function greenSuperf(G,T00,T,TD, Ident) # Green renormalizado, de superficie
     Zetas = G × T00
     Q00   = renorm(Ident, Zetas, G)  # Q00 = inv(  Ident - G00*T00 )*G00
     # Qs0 = 0.0 used for Ndizimac not defined `if (j>1) continuaGR = continuaDizimando(Qs, Qs0, atomosT)`
-    Qs   = Q00  # Qs stands for superficie
-    Qb   = Q00  # Qb stands for bulk
-    TR   = T
-    TRD  = TD
-    TRs  = T
-    TRDs = TD
 
-    QDs   = Qs  # Qs stands for superficie
+    s₊ = Q00    # for Qs, Qs stands for superficie, for funcion de superficie RIGHT
+    s₋ = Q00    # for QDs, for funcion de superficie LEFT
+    τ₊ = T      # for TRs
+    τ₋ = TD     # for TRDs
+
+    b = Q00     # for Qb, Qb stands for bulk
+    ν₊ = T      # for TR
+    ν₋ = TD     # for TRD
 
     n = 10
     for i in 1:n
-        Z    = Qb  × TR
-        ZD   = Qb  × TRD
-        ZDs  = QDs × TRDs
-        Zs   = Qs  × TRs
+        # update central functions (not bulk)
+        β₊ = b  × ν₊  # = Z
+        β₋ = b  × ν₋  # = ZD
+        σ₋ = s₋ × τ₋  # = ZDs
+        σ₊ = s₊ × τ₊  # = Zs
 
-        if i < n # avoid computing at the last loop
-            TRDs = TRDs × ZD
-            TRs  = TRs  × Z
-            TR   = TR   × Z
-            TRD  = TRD  × ZD
+        # update surface functions
+        s₋ = σ₋ × β₊ × s₋  # "L" stands for LEFT
+        s₊ = σ₊ × β₋ × s₊  # "R" stands for RIGHT
+
+        # avoid computing at the last loop
+        if i < n
+            # update interactions τ and ν
+            τ₋ = τ₋ × β₋
+            τ₊ = τ₊ × β₊
+            ν₊ = ν₊ × β₊
+            ν₋ = ν₋ × β₋
+
+            # update bulk function
+            b  = ( (β₊ × β₋) + (β₋ × β₊) ) × b
         end
-
-        QDs  = ZDs × Z  × QDs  # "L" stands for LEFT
-        Qs   = Zs  × ZD × Qs  # "R" stands for RIGHT
-
-        Qb   = ( (Z × ZD) + (ZD × Z) ) × Qb
     end
     #
-    return QDs, Qs # LEFT, RIGHT
-
-    # for _ in 1:10
-    #     if is_L_or_R == "L" #"L" stands for LEFT
-    #         Z    = Qb × TR
-    #         ZD   = Qb × TRD
-    #         ZDs  = Qs × TRDs
-    #         # Zs   = Qs × TRs
-
-    #         TRDs = TRDs × ZD
-    #         # TRs  = TRs × Z
-    #         TR   = TR   × Z
-    #         TRD  = TRD  × ZD
-
-    #         Qs   = ZDs  × Z  × Qs
-    #         # Qs   = Zs × ZD × Qs
-    #         Qb   = ( (Z × ZD) + (ZD × Z) ) × Qb
-
-    #     elseif is_L_or_R == "R" # "R" stands for RIGHT
-    #         Z    = Qb × TR
-    #         ZD   = Qb × TRD
-    #         # ZDs  = Qs × TRDs
-    #         Zs   = Qs × TRs
-
-    #         # TRDs = TRDs × ZD
-    #         TRs  = TRs × Z
-    #         TR   = TR  × Z
-    #         TRD  = TRD × ZD
-
-    #         # Qs   = ZDs  × Z  × Qs
-    #         Qs   = Zs × ZD × Qs
-    #         Qb   = ( (Z × ZD) + (ZD × Z) ) × Qb
-    #     end
-    # end
-    # #
-    # return Qs
+    return s₋, s₊ # LEFT, RIGHT surface functions
 end
 
 
