@@ -100,8 +100,8 @@ function greenRenorm(G,T00,T,TD, Ident)
         # avoid computing at the last loop, before updating `b`
         if i < n
             # update interactions τ and ν
-            ν₊ = ν₊ × b × ν₊   # TR(N) = TR(N-1)*GR(N-1)*TR(N-1)
-            ν₋ = ν₋ × b × ν₋   # TRD(N) = TRD(N-1)*GR(N-1)*TRD(N-1)
+            ν₊ = ν₊ × β₊   # TR(N) = TR(N-1)*GR(N-1)*TR(N-1)
+            ν₋ = ν₋ × β₋   # TRD(N) = TRD(N-1)*GR(N-1)*TRD(N-1)
         end
         
         # update bulk function
@@ -110,5 +110,64 @@ function greenRenorm(G,T00,T,TD, Ident)
 
     end
     #   
-    return GR
+    return b
+end
+
+
+function greenRenorm_bulk_surface(G,T00,T,TD, Ident, is_bulk_or_surface)
+    Zetas = G × T00
+    # for Qb, Qb stands for bulk
+    b  = renorm(Ident, Zetas, G)  # GR ## = inv(  Ident - G*T00 )*G
+    ν₊ = T      # for TR
+    ν₋ = TD     # for TRD
+
+    if is_bulk_or_surface == "surface"
+        s₊ = b    # for Qs, Qs stands for superficie, for funcion de superficie RIGHT
+        s₋ = b    # for QDs, for funcion de superficie LEFT    
+        τ₊ = T      # for TRs
+        τ₋ = TD     # for TRDs
+    end
+
+    n = 10
+    for i in 1:n
+        # update central functions (not bulk)
+        β₊ = b × ν₊  # = Z  ## Z(N-1)   = GR(N-1)*TR(N-1)
+        β₋ = b × ν₋  # = ZD ## ZzD(N-1) = GR(N-1)*TRD(N-1)
+        
+        if is_bulk_or_surface == "surface"
+            # update central functions (not bulk)
+            σ₋ = s₋ × τ₋  # = ZDs
+            σ₊ = s₊ × τ₊  # = Zs
+
+            # update surface functions
+            s₋ = σ₋ × β₊ × s₋  # "L" stands for LEFT
+            s₊ = σ₊ × β₋ × s₊  # "R" stands for RIGHT
+
+            # avoid computing at the last loop
+            if i < n
+                # update interactions τ
+                τ₋ = τ₋ × β₋
+                τ₊ = τ₊ × β₊
+            end
+        end
+
+        # avoid computing at the last loop
+        if i < n
+            # update interactions ν
+            ν₊ = ν₊ × β₊   # TR(N) = TR(N-1)*GR(N-1)*TR(N-1)
+            ν₋ = ν₋ × β₋   # TRD(N) = TRD(N-1)*GR(N-1)*TRD(N-1)
+        end
+
+        # avoid computing at the last loop if surface green functions are asked:
+        if (i < n) || (is_bulk_or_surface == "bulk")
+            # update bulk function
+            Zetas = (β₊ × β₋) + (β₋ × β₊)
+            b = renorm(Ident, Zetas, b)  #GR(N)= inv(...)*GR(N-1)
+        end
+
+        if is_bulk_or_surface == "surface"
+            return s₋, s₊ # LEFT, RIGHT surface functions
+        else
+            return b # bulk
+        end
 end
