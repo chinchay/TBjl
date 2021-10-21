@@ -92,40 +92,40 @@ function get_diagIndices(G)
     return diagind(G, 0)
 end
 
-function get_init_Green!(E, G, diagIndices, n, U, ϵ, V, δ)
+function get_init_Green!(E, ϵ, H, δ, G, diagIndices)
     G .= 0.0 # initialize
-    hubbard = get_Hubbard_energies(U, n)
-    ϵ_new   = get_potential_energies(ϵ, V, hubbard)
-
+    
+    # ϵ and H must be n-element Vector{...} type, i.e, a column like [a, b, c, ...]!, not a row: n1×n Matrix{...} like [a b c ...]
     # https://discourse.julialang.org/t/vectorized-variable-assignment-assign-matrix-off-diagonal-values/16363
-    G[ diagIndices ] .= 1.0 ./ (E .- ϵ_new .+ δ*im)
-    return G
+    G[ diagIndices ] .= @~ 1.0 ./ (E .- ϵ .- H .+ δ*im)
 end
 
 # get_init_Green!(G, G_dw, U, ϵ, V, Δ) # modifies G_up and G_dw
 # G = 0
-function integrandComplexPlane(Efermi, y, G, n, U, ϵ, V, T00, T, TD, Ident) # G can be the initialized G_up or G_dw, and n can be n_dw, or n_up
+function integrandComplexPlane!(y, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f) # G can be the initialized G_up or G_dw, and n can be n_dw, or n_up
     Δ = y / (1.0 - y)
-    get_init_Green!(Efermi, G, diagIndices, n, U, ϵ, V, Δ)
-    greenRenorm!(G, T00, T, TD, Ident) # renomalize G_up (now it is GRup)
+    get_init_Green!(Efermi, ϵ, H, Δ, auxG, diagIndices) # auxG is zeroed and mutated
+    greenRenorm!(auxG, T00, T, TD) # renomalize G_up (now it is GRup)
     
     # defining the integrand
     d = (1.0 - y) ^ 2
-    f = real( G[ diagIndices ] ) ./ d
-    return f
+    f .= @~ real( G[ diagIndices ] ) ./ d
 end
 
 
-function get_n(Efermi, G, n, n_, U, ϵ, V, T00, T, TD, Ident)
-    using QuadGK
+function get_n!(n, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
+    # using QuadGK
     yo = 0.0
     yf = 1.0
+    Y = [0.0, 0.5, 1.0]
+    # integral = <<<<<< You stopped here@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+    # too much memory allocation!!  in the following
     integral, err = quadgk(
-        y -> integrandComplexPlane(Efermi, y, G, n, U, ϵ, V, T00, T, TD, Ident),
+        y -> integrandComplexPlane(y, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f),
         yo, yf, rtol=1e-4)
     # 
-    n_ .= 0.5 .+ integral / π # integrate at each column
-    return n_
+    n .= 0.5 .+ integral / π # integrate at each column
 end
 
 nAtoms = 3
@@ -133,22 +133,23 @@ G_up = zeros(Float32, (nAtoms, nAtoms))
 G_dw = zeros(Float32, (nAtoms, nAtoms))
 n_up = zeros(Float32, nAtoms)
 n_dw = zeros(Float32, nAtoms)
-n_up_ = zeros(Float32, nAtoms)
-n_dw_ = zeros(Float32, nAtoms)
 U = zeros(Float32, nAtoms)
 ϵ = zeros(Float32, nAtoms)
 V = zeros(Float32, nAtoms)
 T00 = zeros(Float32, (nAtoms, nAtoms))
 T = zeros(Float32, (nAtoms, nAtoms))
 TD = zeros(Float32, (nAtoms, nAtoms))
-Ident = zeros(Float32, (nAtoms, nAtoms))
 
 
-n_up_ = get_n(Efermi, G_up, n_dw, U, ϵ, V, T00, T, TD, Ident) #array of length=nAtoms
-n_dw_ = get_n(Efermi, G_dw, n_up, U, ϵ, V, T00, T, TD, Ident)
 
-function dQ_exceso(atomosT,Ndizimac,nAvgUPi,nAvgDOWNi,Efermi,hzeeman,Ue,Eoarray, Uarray,Vbordarr,T00,T,TD,Ident)
-    IntegraPlanoCmplx(nAvgUPi,nAvgDOWNi,atomosT,hzeeman,Eoarray,Uarray,Vbordarr,Ue,Efermi,T00,T,TD,Ident,Ndizimac)
-    dQ_exceso = Sum(  nAvgUPi + nAvgDOWNi   )  - atomosT ! dNe es el ***exceso del NUMERO DE ELECTRONES*** en el ribbon todo.
-end
+G_    = zeros(Float32, (nAtoms, nAtoms))
+n_up_ = zeros(Float32, nAtoms)
+n_dw_ = zeros(Float32, nAtoms)
+
+ϵ_up  = get_potential_energies(ϵ_onsite, V, H_up)
+#########
+H_up  = get_Hubbard_energies(U, n_dw)
+H_dw  = get_Hubbard_energies(U, n_up)
+get_n!(n_up_, Efermi, H_up, ϵ_up, T00, T, TD, tempG) #array of length=nAtoms
+get_n!(n_dw_, Efermi, H_dw, ϵ_up, T00, T, TD, tempG)
 
