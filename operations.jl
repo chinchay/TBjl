@@ -102,7 +102,7 @@ end
 
 # get_init_Green!(G, G_dw, U, ϵ, V, Δ) # modifies G_up and G_dw
 # G = 0
-function integrandComplexPlane!(y, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f) # G can be the initialized G_up or G_dw, and n can be n_dw, or n_up
+function get_integrandFunction!(y, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f) # G can be the initialized G_up or G_dw, and n can be n_dw, or n_up
     Δ = y / (1.0 - y)
     get_init_Green!(Efermi, ϵ, H, Δ, auxG, diagIndices) # auxG is zeroed and mutated
     greenRenorm!(auxG, T00, T, TD) # renomalize G_up (now it is GRup)
@@ -113,19 +113,48 @@ function integrandComplexPlane!(y, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices,
 end
 
 
-function get_n!(n, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
-    # using QuadGK
-    yo = 0.0
-    yf = 1.0
-    Y = [0.0, 0.5, 1.0]
-    # integral = <<<<<< You stopped here@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+function somefunc(X)
+    for x in X
+        
+        integrandComplexPlane!(x, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
+    end
 
-    # too much memory allocation!!  in the following
-    integral, err = quadgk(
-        y -> integrandComplexPlane(y, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f),
-        yo, yf, rtol=1e-4)
-    # 
-    n .= 0.5 .+ integral / π # integrate at each column
+    return Y
+end
+
+function get_n!(n, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
+
+    X = Integrations.get_X_for_GaussIntegration()
+    m, n = size(X)
+    L = m * n
+    Y = zeros(Float32, (m, n))
+    auxY = zeros(Float32, (L, nAtoms))
+
+    for i in 1:L
+        x = X[i]
+
+        # mutates f
+        get_integrandFunction!(x, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
+
+        # It can be used
+        # auxY[i, :] .= f
+        # but to avoid allocations, I used instead:
+        for s in 1:nAtoms
+            auxY[i, s] = f[s]
+        end
+    end
+
+    for s in 1:nAtoms
+        # It can be used
+        # Y[:] .= auxY[:, s]
+        # but to avoid allocations, I used instead:
+        for i in 1:L
+            Y[i] = auxY[i, s]
+        end
+        #
+        integral = Integrations.Gauss5Quad!($auxSum, $Y);
+        n[s] = 0.5 .+ (integral / π)
+    end
 end
 
 nAtoms = 3
