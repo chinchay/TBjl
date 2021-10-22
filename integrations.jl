@@ -1,7 +1,7 @@
 module Integrations
 
-using LazyArrays, LinearAlgebra
-using Einsum
+# using LazyArrays, LinearAlgebra
+# using Einsum
 
 # how to use it:
 # include("Integrations.jl"); using .Integrations
@@ -30,7 +30,7 @@ const dx44 = -dx22
 const dx55 = -dx11
 const xo = 0.0
 const xf = 1.0
-const nIntervals = 40 # enough or 5
+const nIntervals = 4 # enough or 5
 const dx = (xf - xo) / nIntervals
 const dx1 = dx * (0.5 + (dx11 / 2.0))
 const dx2 = dx * (0.5 + (dx22 / 2.0))
