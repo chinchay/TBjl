@@ -69,30 +69,40 @@ function get_X_for_GaussIntegration()
 end
 
 
-function Gauss5Quad!(auxSum, Y) # `Y` must be a nIntervals x 5 matrix
-    #* I tested `.=` vs `.= @~ ` (`using LazyArrays; using LinearAlgebra`)
-    #* results: `.=` is slightly faster.
-    # auxSum .= lc .* Y # it multplies c1 x a column in Y, c2 x second column of Y, ...
+# function Gauss5Quad!(auxSum, Y) # `Y` must be a nIntervals x 5 matrix
+#     #* I tested `.=` vs `.= @~ ` (`using LazyArrays; using LinearAlgebra`)
+#     #* results: `.=` is slightly faster.
+#     # auxSum .= lc .* Y # it multplies c1 x a column in Y, c2 x second column of Y, ...
 
-    #* half time reduced if using Einsum package (`using Einsum`)
-    #* https://discourse.julialang.org/t/matrix-multiplication-and-element-wise-operations-without-extra-pre-allocation-of-memory/42855/2
-    #* There was an error when trying to do
-    #* AssertionError: size(l, 1) == size(Y, 2)
-    #* so I redefined lc as a row lc = [c1, c2, c3, c4, c5] instead of columns [c1 c2 ...]
-    #     @einsum auxSum[i, j] = lc[j] * Y[i, j]
+#     #* half time reduced if using Einsum package (`using Einsum`)
+#     #* https://discourse.julialang.org/t/matrix-multiplication-and-element-wise-operations-without-extra-pre-allocation-of-memory/42855/2
+#     #* There was an error when trying to do
+#     #* AssertionError: size(l, 1) == size(Y, 2)
+#     #* so I redefined lc as a row lc = [c1, c2, c3, c4, c5] instead of columns [c1 c2 ...]
+#     #     @einsum auxSum[i, j] = lc[j] * Y[i, j]
 
-    #* The third option is faster:
-    #* Gauss5Quad!(auxSum, Y) = auxSum .= Mc .* Y
-    #* Gauss5Quad!(auxSum, Y) = @einsum auxSum[i,j] = lc[j] * Y[i, j] ### lc = [c1, c2, c3, c4, c5] defined as constant
-    #* Gauss5Quad!(auxSum, Y) = @einsum auxSum[i,j] = Mc[i,j] * Y[i,j] ## lc = [c1 c2 c3 c4 c5];  Mc = lc .* ones(Float32, (nIntervals, 5))
+#     #* The third option is faster:
+#     #* Gauss5Quad!(auxSum, Y) = auxSum .= Mc .* Y
+#     #* Gauss5Quad!(auxSum, Y) = @einsum auxSum[i,j] = lc[j] * Y[i, j] ### lc = [c1, c2, c3, c4, c5] defined as constant
+#     #* Gauss5Quad!(auxSum, Y) = @einsum auxSum[i,j] = Mc[i,j] * Y[i,j] ## lc = [c1 c2 c3 c4 c5];  Mc = lc .* ones(Float32, (nIntervals, 5))
     
-    # @einsum auxSum[i] = Mc[i] * Y[i]
+#     # @einsum auxSum[i] = Mc[i] * Y[i]
 
-    #* I changed to a row, so that it can represent the energy of a specific site s, as was used in previous Fortran algorithm
-    @einsum auxSum[i] = lc[i] * Y[i]
+#     #* I changed to a row, so that it can represent the energy of a specific site s, as was used in previous Fortran algorithm
+#     @einsum auxSum[i] = lc[i] * Y[i]
+
+#     integral = sum(auxSum) * fac
+#     return integral
+
+
+function Gauss5Quad!(auxSum, fMatrix, site, lengthX)
+    for i in 1:lengthX
+        auxSum[i] = lc[i] * fMatrix[i, site]
+    end
 
     integral = sum(auxSum) * fac
     return integral
+
 end
 
 

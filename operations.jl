@@ -102,58 +102,39 @@ end
 
 # get_init_Green!(G, G_dw, U, ϵ, V, Δ) # modifies G_up and G_dw
 # G = 0
-function get_integrandFunction!(y, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f) # G can be the initialized G_up or G_dw, and n can be n_dw, or n_up
+function get_integrandFunction!(fMatrix, y, i, nAtoms, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices) # G can be the initialized G_up or G_dw, and n can be n_dw, or n_up
+# function get_integrandFunction!(y, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f) # G can be the initialized G_up or G_dw, and n can be n_dw, or n_up
     Δ = y / (1.0 - y)
     get_init_Green!(Efermi, ϵ, H, Δ, auxG, diagIndices) # auxG is zeroed and mutated
     greenRenorm!(auxG, T00, T, TD) # renomalize G_up (now it is GRup)
     
     # defining the integrand
     d = (1.0 - y) ^ 2
-    f .= @~ real( G[ diagIndices ] ) ./ d
-end
-
-
-function somefunc(X)
-    for x in X
-        
-        integrandComplexPlane!(x, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
-    end
-
-    return Y
-end
-
-function get_n!(n, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
-
-    X = Integrations.get_X_for_GaussIntegration()
-    m = length(X)
-    Y = zeros(Float32, m)
-    auxSum = zeros(Float32, m)
-    aux = zeros(Float32, (m, nAtoms))
     
-    for i in 1:m
+    # f .= @~ real( G[ diagIndices ] ) ./ d
+    for s in 1:nAtoms
+        fMatrix[i, s] = real( G[s, s] ) / d
+    end
+end
+
+
+
+function get_n!(n, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, X, auxSum, fMatrix, lengthX, nAtoms)
+    #
+    for i in 1:lengthX
         x = X[i]
 
         # mutates f
-        get_integrandFunction!(x, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
-
-        aux[i, :] .= f
-
-        # It can be used
-        # auxY[i, :] .= f
-        # but to avoid allocations, I used instead:
-        # for s in 1:nAtoms
-        #     aux[i, s] = f[s]
-        # end
+        get_integrandFunction!(fMatrix, x, i, nAtoms, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices)
     end
 
     for s in 1:nAtoms
-        Y .= aux[:, s]
-        integral = Integrations.Gauss5Quad!($auxSum, $Y);
+        integral = Integrations.Gauss5Quad2!(auxSum, fMatrix, s, lengthX)
         n[s] = 0.5 .+ (integral / π)
     end
 end
 
-nAtoms = 3
+nAtoms = 2
 G_up = zeros(Float32, (nAtoms, nAtoms))
 G_dw = zeros(Float32, (nAtoms, nAtoms))
 n_up = zeros(Float32, nAtoms)
@@ -166,6 +147,15 @@ T = zeros(Float32, (nAtoms, nAtoms))
 TD = zeros(Float32, (nAtoms, nAtoms))
 
 
+X = Integrations.get_X_for_GaussIntegration()
+lengthX = length(X)
+auxSum  = zeros(Float32, lengthX)
+fMatrix = zeros(Float32, (lengthX, nAtoms))
+#
+#mutates n (occupation)
+get_n!(n, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, X, auxSum, fMatrix, lengthX, nAtoms)
+
+
 
 G_    = zeros(Float32, (nAtoms, nAtoms))
 n_up_ = zeros(Float32, nAtoms)
@@ -175,6 +165,6 @@ n_dw_ = zeros(Float32, nAtoms)
 #########
 H_up  = get_Hubbard_energies(U, n_dw)
 H_dw  = get_Hubbard_energies(U, n_up)
-get_n!(n_up_, Efermi, H_up, ϵ_up, T00, T, TD, tempG) #array of length=nAtoms
-get_n!(n_dw_, Efermi, H_dw, ϵ_up, T00, T, TD, tempG)
+get_n!(n_up_, Efermi, H_up, ϵ_up, T00, T, TD, auxG, diagIndices, X, auxSum, fMatrix, lengthX, nAtoms)
+get_n!(n_dw_, Efermi, H_dw, ϵ_dw, T00, T, TD, auxG, diagIndices, X, auxSum, fMatrix, lengthX, nAtoms)
 
