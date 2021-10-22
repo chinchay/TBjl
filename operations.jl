@@ -125,33 +125,29 @@ end
 function get_n!(n, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
 
     X = Integrations.get_X_for_GaussIntegration()
-    m, n = size(X)
-    L = m * n
-    Y = zeros(Float32, (m, n))
-    auxY = zeros(Float32, (L, nAtoms))
-
-    for i in 1:L
+    m = length(X)
+    Y = zeros(Float32, m)
+    auxSum = zeros(Float32, m)
+    aux = zeros(Float32, (m, nAtoms))
+    
+    for i in 1:m
         x = X[i]
 
         # mutates f
         get_integrandFunction!(x, Efermi, H, ϵ, T00, T, TD, auxG, diagIndices, f)
 
+        aux[i, :] .= f
+
         # It can be used
         # auxY[i, :] .= f
         # but to avoid allocations, I used instead:
-        for s in 1:nAtoms
-            auxY[i, s] = f[s]
-        end
+        # for s in 1:nAtoms
+        #     aux[i, s] = f[s]
+        # end
     end
 
     for s in 1:nAtoms
-        # It can be used
-        # Y[:] .= auxY[:, s]
-        # but to avoid allocations, I used instead:
-        for i in 1:L
-            Y[i] = auxY[i, s]
-        end
-        #
+        Y .= aux[:, s]
         integral = Integrations.Gauss5Quad!($auxSum, $Y);
         n[s] = 0.5 .+ (integral / π)
     end

@@ -47,21 +47,24 @@ const c3 = 128.0 / 225.0
 const c4 = c2
 const c5 = c1
 # const lc = [c1, c2, c3, c4, c5] # lc must be [a1 a2 a3 a4 a5] : 1×5 Matrix{Float32}
+const lc = repeat([c1, c2, c3, c4, c5], outer = [nIntervals]) # https://stackoverflow.com/questions/24846899/tiling-or-repeating-n-dimensional-arrays-in-julia
 
-const lc = [c1 c2 c3 c4 c5]
-const Mc = lc .* ones(Float32, (nIntervals, 5))
+# const lc = [c1 c2 c3 c4 c5]
+# const Mc = lc .* ones(Float32, (nIntervals, 5))
 
 const fac = (xf - xo) / nIntervals / 2.0
 const len = nIntervals * 5
 
 function get_X_for_GaussIntegration()
-    X = zeros(Float32, (nIntervals, 5))
+    X = zeros(Float32, len)
 
     for i in 1:nIntervals
-        D = xo + ((i - 1) * dx)
-        X[i,:] .= D .+ ld
+        iminus1 = i - 1
+        D = xo + (iminus1 * dx)
+        for j in 1:5
+            X[(iminus1 * 5) + j] = D + ld[j]
+        end
     end
-
     return X
 end
 
@@ -83,7 +86,10 @@ function Gauss5Quad!(auxSum, Y) # `Y` must be a nIntervals x 5 matrix
     #* Gauss5Quad!(auxSum, Y) = @einsum auxSum[i,j] = lc[j] * Y[i, j] ### lc = [c1, c2, c3, c4, c5] defined as constant
     #* Gauss5Quad!(auxSum, Y) = @einsum auxSum[i,j] = Mc[i,j] * Y[i,j] ## lc = [c1 c2 c3 c4 c5];  Mc = lc .* ones(Float32, (nIntervals, 5))
     
-    @einsum auxSum[i,j] = Mc[i,j] * Y[i,j]
+    # @einsum auxSum[i] = Mc[i] * Y[i]
+
+    #* I changed to a row, so that it can represent the energy of a specific site s, as was used in previous Fortran algorithm
+    @einsum auxSum[i] = lc[i] * Y[i]
 
     integral = sum(auxSum) * fac
     return integral
